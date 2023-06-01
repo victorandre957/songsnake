@@ -34,11 +34,10 @@ class ClientWindow(QtWidgets.QWidget):
 
     def set_stream(self):
         self.p = pyaudio.PyAudio()
-        CHUNK = 2048
+        CHUNK = 1024
         FORMAT = pyaudio.paInt16
         CHANNELS = 2
         RATE = 44100
-        RECORD_SECONDS = 3
         self.stream = self.p.open(
             format=FORMAT,
             channels=CHANNELS,
@@ -47,12 +46,38 @@ class ClientWindow(QtWidgets.QWidget):
             frames_per_buffer=CHUNK
         )
 
-    def get_response(self):
+    def get_response_string(self):
+        received_data = self.client_socket.recv(1024)
         try:
-            res = pickle.loads(self.client_socket.recv(1024))
-        except:
+            data = pickle.loads(received_data)
+            if (data["type"] == "String"):
+                res = data["data"]
+            else:
+                res = ""
+        except pickle.UnpicklingError:
             res = ""
         return res
+    
+    def get_response_List(self):
+        received_data = self.client_socket.recv(1024)
+        try:
+            data = pickle.loads(received_data)
+            if (data["type"] == "MusicList"):
+                res = data["data"]
+            else:
+                res = []
+        except pickle.UnpicklingError:
+            res = []
+        return res
+    
+    def get_response_AudioData(self, audio_data):
+        new_audio_data = audio_data
+        received_data = self.client_socket.recv(1024)
+        try:
+            _ = pickle.loads(received_data)
+        except:
+            new_audio_data = received_data
+        return new_audio_data
 
     def create_widgets(self):
         self.message_label = QtWidgets.QLabel("Mensagem:")
@@ -92,11 +117,8 @@ class ClientWindow(QtWidgets.QWidget):
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.client_socket.connect((self.server, self.port))
-        
-        try:
-            res = pickle.loads(self.client_socket.recv(1024))
-        except:
-            res = []
+
+        res = self.get_response_List()
         self.status_label.setText(self.show_music_list(res))
     
     def send_message(self):
@@ -106,7 +128,7 @@ class ClientWindow(QtWidgets.QWidget):
         self.message = self.message_entry.text()
         self.client_socket.send(pickle.dumps(self.message))
         
-        ch = self.get_response()
+        ch = self.get_response_string()
         if ch == "\n Musica não encontada":
             self.status_label.setText(ch)
         elif ch == "\n Reproduzindo...":
@@ -116,37 +138,30 @@ class ClientWindow(QtWidgets.QWidget):
     def playing_music(self):
         self.status_label.setText(f"\n Tocando {self.message} ...")
         self.pausado = False
-
+        audio_data = None
         while True:
             QtWidgets.QApplication.processEvents()
 
             if self.pausado:
                 continue
-            elif self.playing:
-                try:
-                    audio_data = self.client_socket.recv(2048)
-                    self.stream.write(audio_data)
-                except:
-                    continue
-            else:
-                break
+        
+            if self.playing:
+                audio_data = self.get_response_AudioData(audio_data)
+                self.stream.write(audio_data)
     
         self.stop_stream()
 
     def stop_stream(self):
-        self.playing = False
         if self.stream:
             self.stream.stop_stream()
             self.stream.close()
             self.p.terminate()
+        self.playing = False
 
     def update_process(self):
         self.client_socket.send(pickle.dumps("update"))
         self.message_entry.setText("")
-        try:
-            res = pickle.loads(self.client_socket.recv(1024))
-        except:
-            res = [] 
+        res = self.get_response_list()
         self.status_label.setText(self.show_music_list(res))
     
     def exit_application(self):
@@ -156,26 +171,28 @@ class ClientWindow(QtWidgets.QWidget):
         self.close()
 
     def stop_playing(self):
+        self.stop_stream()
         self.client_socket.send(pickle.dumps("stop"))
         self.message_entry.setText("")
-        self.stop_stream()
-        QtWidgets.QApplication.processEvents()
-        res = self.get_response()
-        self.status_label.setText(res)
-
-        self.set_stream()
+        res = self.get_response_list()
+        self.status_label.setText(self.show_music_list(res))
+        self.status_label.setText("A Reprodução foi encerrada")
 
     def pause_resume_playing(self):
         self.client_socket.send(pickle.dumps("pause/play"))
-        res = self.get_response()
-        self.status_label.setText(self.show_music_list(res))
-        
+        if (self.pausado):
+            self.stream.start_stream()
+            self.status_label.setText("Reproduzindo...")
+        else:
+            self.stream.stop_stream()
+            self.status_label.setText("Pausado")
+
         self.pausado = not self.pausado
 
 
 if __name__ == "__main__":
-    app = QtWidgets.QApplication(sys.argv)
-    window = ClientWindow()
-    window.show()
-
-    sys.exit(app.exec_())
+    while True:
+        app = QtWidgets.QApplication(sys.argv)
+        window = ClientWindow()
+        window.show()
+        sys.exit(app.exec_())
