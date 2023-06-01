@@ -10,7 +10,7 @@ def convert_to_wav(mp3_file, output_folder):
         output_folder, 
         os.path.splitext(os.path.basename(mp3_file))[0] + ".wav"
     )
-    audio.export(output_file, format="wav", overwrite=True)
+    audio.export(output_file, format="wav")
     print(f"Arquivo {mp3_file} convertido com sucesso para {output_file}")
 
 
