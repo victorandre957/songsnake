@@ -2,6 +2,7 @@ import socket
 import pyaudio
 import pickle
 import sys
+import time
 from PyQt5 import QtWidgets
 
 class Music:
@@ -34,7 +35,7 @@ class ClientWindow(QtWidgets.QWidget):
 
     def set_stream(self):
         self.p = pyaudio.PyAudio()
-        CHUNK = 1024
+        CHUNK = 1024 * 30
         FORMAT = pyaudio.paInt16
         CHANNELS = 2
         RATE = 44100
@@ -71,8 +72,9 @@ class ClientWindow(QtWidgets.QWidget):
         return res
     
     def get_response_AudioData(self, audio_data):
+        CHUNK = 1024 * 30
         new_audio_data = audio_data
-        received_data = self.client_socket.recv(1024)
+        received_data = self.client_socket.recv(CHUNK)
         try:
             _ = pickle.loads(received_data)
         except:
@@ -137,8 +139,9 @@ class ClientWindow(QtWidgets.QWidget):
 
     def playing_music(self):
         self.status_label.setText(f"\n Tocando {self.message} ...")
+        time.sleep(2)
         self.pausado = False
-        audio_data = None
+        audio_data = b""
         while True:
             QtWidgets.QApplication.processEvents()
 
@@ -147,7 +150,10 @@ class ClientWindow(QtWidgets.QWidget):
         
             if self.playing:
                 audio_data = self.get_response_AudioData(audio_data)
-                self.stream.write(audio_data)
+                if audio_data:
+                    self.stream.write(audio_data)
+                else:
+                    break
     
         self.stop_stream()
 
