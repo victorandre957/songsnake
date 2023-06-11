@@ -3,6 +3,7 @@ import pickle
 import socket
 import pyaudio
 import threading
+import time
 from PIL import Image, ImageTk
 
 class Music:
@@ -15,8 +16,9 @@ class MusicPlayer:
         self.root = tk.Tk()
         self.root.title("SongSnake")
         self.root.geometry("500x350")
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        self.songlist = tk.Listbox(self.root, bg="black", fg="gray", width="100", height="15")
+        self.songlist = tk.Listbox(self.root, bg="black", fg="white", width="100", height="15")
         self.songlist.pack()
 
         self.play_button_image = ImageTk.PhotoImage(file="./assets/play.png")
@@ -39,16 +41,30 @@ class MusicPlayer:
 
         self.music_list = []
         self.current_song = None
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        self.server = "127.0.0.2"
+        self.port = 5544
+
+        self.set_connection()
+
         self.p = pyaudio.PyAudio()
 
         self.paused = False
         self.load_music_list()
 
+
+    def serialize_and_send(self, data):
+        attempts = 3
+        while attempts > 0:
+            try:
+                self.socket.send(pickle.dumps(data))
+                break
+            except:
+                attempts -= 1
+                print("Não foi possível enviar a mensagem")
+
     def load_music_list(self):
         try:
-            self.socket.connect(("localhost", 5544))
-            self.socket.send(pickle.dumps("update"))
             response = pickle.loads(self.socket.recv(1024))
             if response["type"] == "MusicList":
                 self.music_list = response["data"]
@@ -60,13 +76,13 @@ class MusicPlayer:
 
     def play_music(self):
         if self.paused:
-            self.socket.send(pickle.dumps("pause/play"))
+            self.serialize_and_send("pause/play")
             self.paused = False
             
         selected_song_index = self.songlist.curselection()
         if selected_song_index:
             self.current_song = self.music_list[selected_song_index[0]]
-            self.socket.send(pickle.dumps(self.current_song.id))
+            self.serialize_and_send(self.current_song.id)
             threading.Thread(target=self.receive_audio).start()
 
     def receive_audio(self):
@@ -84,35 +100,93 @@ class MusicPlayer:
             frames_per_buffer=CHUNK
         )
 
-        while self.current_song and not self.paused:
+        while self.current_song != None and not self.paused:
             try:
-                data = self.socket.recv(CHUNK)
-                stream.write(data)
+                self.audio_data = self.socket.recv(CHUNK)
+                stream.write(self.audio_data)
             except socket.error as e:
                 print(f"Error receiving audio data: {e}")
                 break
 
         stream.stop_stream()
         stream.close()
+        self.current_song = None
 
     def pause_music(self):
         self.paused = True
-        self.socket.send(pickle.dumps("pause/play"))
+        self.serialize_and_send("pause/play")
 
     def stop_music(self):
         self.current_song = None
-        self.socket.send(pickle.dumps("stop"))
+        self.clear_socket_buffer()
+        self.serialize_and_send("stop")
+
+    def close_connection(self):
+        if (self.is_socket_connected()):
+            if (self.paused):
+                self.stop_music()
+            self.serialize_and_send("end")
+
+            attempts = 3
+            while attempts >0:
+                try:
+                    response = pickle.loads(self.socket.recv(1024))
+                    if (response["data"] == "Encerrando conexão"):
+                        break
+                except:
+                    attempts -= 1
+            time.sleep(0.5)
+            self.socket.close()
+
+    def set_connection(self):
+        try:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.socket.connect((self.server, self.port))
+            time.sleep(0.5)
+        except:
+            pass
     
     def reconnect(self):
-        self.socket.close()
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if (self.current_song):
+            self.stop_music()
+        self.songlist.delete(0, tk.END)
+        self.close_connection()
+        self.set_connection()
         self.load_music_list()
-
+        
     def run(self):
         reconnect_button = tk.Button(self.root, text="Reconnect", command=self.reconnect)
         reconnect_button.pack()
 
         self.root.mainloop()
+
+    def on_close(self):
+        if (self.current_song):
+            self.stop_music()
+        self.songlist.delete(0, tk.END)
+        self.close_connection()
+        self.root.destroy()
+
+    def clear_socket_buffer(self):
+        data_pending = True
+        if self.is_socket_connected():
+            while data_pending:
+                self.socket.settimeout(0.1)
+
+                try:
+                    data = self.socket.recv(1024)
+                    if not data:
+                        data_pending = False
+                except socket.timeout:
+                    data_pending = False
+
+    def is_socket_connected(self):
+        try:
+            self.socket.send(b'')
+            return True
+        except:
+            return False
 
 
 if __name__ == "__main__":

@@ -24,6 +24,7 @@ class Server():
         address = address
         print("<", address, ">  connected ")
 
+        self.stream = None
         self.music_to_play = None
         self.pause_music = False
         self.playing_music = False
@@ -39,34 +40,44 @@ class Server():
     def serialize_and_send(self, type, data):
         try:
             self.conn.send(pickle.dumps({"type": type, "data": data}))
-        except BrokenPipeError:
+        except (BrokenPipeError, ConnectionResetError):
             print("A conexão foi fechada pelo servidor.")
+            pass
 
     def run_process(self):
         self.set_files_list()
         self.send_music_list()            
 
         while True:
-            if select.select([self.conn], [], [], 0)[0]:
-                res = self.get_response()
-                if res == "stop":
+            if self.conn:
+                try:
+                    if select.select([self.conn], [], [], 0)[0]:
+                        res = self.get_response()
+                        if res == "stop":
+                            if (self.music_to_play != None):
+                                self.stop_music()
+                                break
+                        elif res == "pause/play":
+                            if (self.music_to_play != None):
+                                self.pause_or_play_music()
+                        elif res == "update":
+                            self.restart_process()
+                            break
+                        elif res == "end":
+                            self.end_process()
+                            break
+                        elif res != None:
+                            self.chose_music_to_play(res)
+
+                    if (self.music_to_play != None and not self.playing_music):
+                        self.play_music()
+                except:
                     if (self.music_to_play != None):
                         self.stop_music()
+                        self.end_process()
                         break
-                elif res == "pause/play":
-                    if (self.music_to_play != None):
-                        self.pause_or_play_music()
-                elif res == "update":
-                    self.restart_process()
-                    break
-                elif res == "end":
-                    self.end_process()
-                    break
-                elif res != None:
-                    self.chose_music_to_play(res)
-
-            if (self.music_to_play != None and not self.playing_music):
-                self.play_music()
+            else:
+                break
 
     def filter_files(self, files_list):
         wav_files = []
@@ -117,25 +128,31 @@ class Server():
         )
         data = 1
         while data:
-            # Check for any incoming messages from the client
-            try:
-                if select.select([self.conn], [], [], 0)[0]:
-                    res = self.get_response()
-                    if res == "stop":
-                        self.stop_music()
-                    elif res == "pause/play":
-                        self.pause_or_play_music()
-                    elif res == "update":
-                        self.restart_process()
-                    elif res == "end":
-                        self.end_process()
-            except:
-                pass
+            if self.conn:
+                try:
+                    if select.select([self.conn], [], [], 0)[0]:
+                        res = self.get_response()
+                        if res == "stop":
+                            self.stop_music()
+                            break
+                        elif res == "pause/play":
+                            self.pause_or_play_music()
+                        elif res == "update":
+                            self.restart_process()
+                        elif res == "end":
+                            self.end_process()
+                except:
+                    break
+            else:
+                break
 
             if not self.pause_music:
                 data = wf.readframes(CHUNK)
                 if self.playing_music:
-                    self.conn.send(data)
+                    try:
+                        self.conn.send(data)
+                    except:
+                        break
 
         self.end_music()
 
@@ -147,8 +164,6 @@ class Server():
         
         self.playing_music = False
         self.music_to_play = None
-        self.serialize_and_send("String", "\n A Musica acabou")
-        self.send_music_list()
 
     def stop_music(self):
         if self.stream:
@@ -159,7 +174,6 @@ class Server():
         self.playing_music = False
         self.music_to_play = None
         print("stop")
-        self.send_music_list()
 
     def pause_or_play_music(self):
         if (not self.pause_music):
@@ -177,13 +191,15 @@ class Server():
         self.run_process()
 
     def end_process(self):
-        if (self.playing_music):
-            self.playing_music = False
-            self.music_to_play = None
+        self.serialize_and_send("String", "Encerrando conexão")
+        self.playing_music = False
+        self.music_to_play = None
+
+        if (self.stream):
             self.stream.stop_stream()
             self.stream.close()
             self.play.terminate()
-            
+        
         self.conn.close()
 
 
