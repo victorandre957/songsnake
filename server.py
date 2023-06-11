@@ -11,6 +11,7 @@ import fnmatch
 import select
 import wave
 import os
+import time
 from _thread import *
 
 class Music:
@@ -21,13 +22,14 @@ class Music:
 class Server():
     def __init__(self, conn, address):
         self.conn = conn
-        address = address
-        print("<", address, ">  connected ")
+        self.address = address
+        print("<", self.address, ">  connected ")
 
         self.stream = None
         self.music_to_play = None
         self.pause_music = False
         self.playing_music = False
+        self.last_activity_time = time.time()
         self.run_process()
 
     def get_response(self):
@@ -51,6 +53,7 @@ class Server():
             if self.conn:
                 try:
                     if select.select([self.conn], [], [], 0)[0]:
+                        self.last_activity_time = time.time()
                         res = self.get_response()
                         if res == "stop":
                             if (self.music_to_play != None):
@@ -68,13 +71,20 @@ class Server():
                         elif res != None:
                             self.chose_music_to_play(res)
 
-                    if (self.music_to_play != None and not self.playing_music):
-                        self.play_music()
+                    else:
+                        if time.time() - self.last_activity_time > 600:
+                            print("Fechando conexão por inatividade")
+                            self.end_process()
+                            break
                 except:
                     if (self.music_to_play != None):
                         self.stop_music()
                         self.end_process()
                         break
+
+                if (self.music_to_play != None and not self.playing_music):
+                    self.play_music()
+
             else:
                 break
 
@@ -188,6 +198,7 @@ class Server():
 
     def end_process(self):
         self.serialize_and_send("String", "Encerrando conexão")
+        print("<", self.address, ">  disconnected ")
         self.playing_music = False
         self.music_to_play = None
 

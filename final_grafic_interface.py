@@ -15,11 +15,14 @@ class MusicPlayer:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("SongSnake")
-        self.root.geometry("500x350")
+        self.root.geometry("500x380")
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         self.songlist = tk.Listbox(self.root, bg="black", fg="white", width="100", height="15")
         self.songlist.pack()
+
+        self.error_label = tk.Label(self.root, text="", fg="red")
+        self.error_label.pack()
 
         self.play_button_image = ImageTk.PhotoImage(file="./assets/play.png")
         self.pause_button_image = ImageTk.PhotoImage(file="./assets/pause.png")
@@ -58,9 +61,10 @@ class MusicPlayer:
         while attempts > 0:
             try:
                 self.socket.send(pickle.dumps(data))
-                break
+                return
             except:
                 attempts -= 1
+        self.error_label.config(text="Não foi possível se conectar com o servidor, clique no botão 'Reconectar'")
 
     def load_music_list(self):
         try:
@@ -69,10 +73,16 @@ class MusicPlayer:
                 self.music_list = response["data"]
                 for music in self.music_list:
                     self.songlist.insert(tk.END, music.filename)
-        except socket.error as e:
+        except socket.error:
+            self.error_label.config(text="Não foi possível se conectar com o servidor, clique no botão 'Reconectar'")
             return
 
     def play_music(self):
+        is_connected = self.is_socket_connected()
+        if (not is_connected):
+            self.error_label.config(text="Não foi possível se conectar com o servidor, clique no botão 'Reconectar'")
+            return 
+        
         if self.paused:
             self.serialize_and_send("pause/play")
             self.paused = False
@@ -107,7 +117,8 @@ class MusicPlayer:
             try:
                 self.audio_data = self.socket.recv(CHUNK)
                 stream.write(self.audio_data)
-            except socket.error as e:
+            except socket.error:
+                self.error_label.config(text="Não foi possível se conectar com o servidor, clique no botão 'Reconectar'")
                 break
 
         stream.stop_stream()
@@ -150,6 +161,7 @@ class MusicPlayer:
             pass
     
     def reconnect(self):
+        self.error_label.config(text="")
         if (self.current_song):
             self.stop_music()
         self.songlist.delete(0, tk.END)
@@ -184,11 +196,17 @@ class MusicPlayer:
                     data_pending = False
 
     def is_socket_connected(self):
-        try:
-            self.socket.send(b'')
-            return True
-        except:
-            return False
+        attempts = 3
+        while attempts > 0:
+            try:
+                self.socket.send(b'')
+                return True
+            except:
+                if (attempts == 1):
+                    return False
+                else:
+                    attempts -= 1
+        return False
 
 
 if __name__ == "__main__":
