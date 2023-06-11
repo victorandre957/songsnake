@@ -1,0 +1,7 @@
+pickle
+pyaudio
+fnmatch
+select
+wave
+tkinter
+Pillow

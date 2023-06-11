@@ -51,7 +51,7 @@ class MusicPlayer:
         self.music_list = []
         self.current_song = None
 
-        self.server = "127.0.0.2"
+        self.server = ""
         self.port = 5544
 
         self.set_connection()
