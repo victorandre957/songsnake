@@ -41,7 +41,6 @@ class Server():
         try:
             self.conn.send(pickle.dumps({"type": type, "data": data}))
         except (BrokenPipeError, ConnectionResetError):
-            print("A conexão foi fechada pelo servidor.")
             pass
 
     def run_process(self):
@@ -173,15 +172,12 @@ class Server():
 
         self.playing_music = False
         self.music_to_play = None
-        print("stop")
 
     def pause_or_play_music(self):
         if (not self.pause_music):
             self.stream.stop_stream()
-            print("pause")
         else:
             self.stream.start_stream()
-            print("play")
         self.pause_music = not self.pause_music
 
     def restart_process(self):

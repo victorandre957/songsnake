@@ -61,7 +61,6 @@ class MusicPlayer:
                 break
             except:
                 attempts -= 1
-                print("Não foi possível enviar a mensagem")
 
     def load_music_list(self):
         try:
@@ -71,7 +70,6 @@ class MusicPlayer:
                 for music in self.music_list:
                     self.songlist.insert(tk.END, music.filename)
         except socket.error as e:
-            print(f"Failed to connect to the server: {e}")
             return
 
     def play_music(self):
@@ -105,7 +103,6 @@ class MusicPlayer:
                 self.audio_data = self.socket.recv(CHUNK)
                 stream.write(self.audio_data)
             except socket.error as e:
-                print(f"Error receiving audio data: {e}")
                 break
 
         stream.stop_stream()
@@ -156,7 +153,7 @@ class MusicPlayer:
         self.load_music_list()
         
     def run(self):
-        reconnect_button = tk.Button(self.root, text="Reconnect", command=self.reconnect)
+        reconnect_button = tk.Button(self.root, text="Reconectar", command=self.reconnect)
         reconnect_button.pack()
 
         self.root.mainloop()
