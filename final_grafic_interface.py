@@ -13,7 +13,7 @@ class Music:
 class MusicPlayer:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Music Player")
+        self.root.title("SongSnake")
         self.root.geometry("500x350")
 
         self.songlist = tk.Listbox(self.root, bg="black", fg="gray", width="100", height="15")
