@@ -41,6 +41,12 @@ class MusicPlayer:
         self.pause_button.grid(row=0, column=0, padx=7, pady=10)
         self.stop_button.grid(row=0, column=2, padx=7, pady=10)
 
+        self.menubar = tk.Menu(self.root)
+        self.root.config(menu=self.menubar)
+
+        self.organise_menu = tk.Menu(self.menubar)
+        self.organise_menu.add_command(label="Atualizar lista de Músicas", command=self.update_music_list)
+        self.menubar.add_cascade(label="Mais Ações", menu=self.organise_menu)
 
         self.music_list = []
         self.current_song = None
@@ -57,6 +63,7 @@ class MusicPlayer:
 
 
     def serialize_and_send(self, data):
+        self.error_label.config(text="")
         attempts = 3
         while attempts > 0:
             try:
@@ -67,6 +74,7 @@ class MusicPlayer:
         self.error_label.config(text="Não foi possível se conectar com o servidor, clique no botão 'Reconectar'")
 
     def load_music_list(self):
+        self.error_label.config(text="")
         try:
             response = pickle.loads(self.socket.recv(1024))
             if response["type"] == "MusicList":
@@ -159,7 +167,15 @@ class MusicPlayer:
             time.sleep(0.5)
         except:
             pass
-    
+
+
+    def update_music_list(self):
+        if (self.current_song):
+            self.stop_music()
+        self.serialize_and_send("update")
+        self.songlist.delete(0, tk.END)
+        self.load_music_list()
+
     def reconnect(self):
         self.error_label.config(text="")
         if (self.current_song):
