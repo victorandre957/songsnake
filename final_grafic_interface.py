@@ -82,6 +82,8 @@ class MusicPlayer:
             if (self.current_song and self.current_song != self.music_list[selected_song_index[0]]):
                 self.stop_music()
                 time.sleep(0.5)
+            elif (self.current_song and self.current_song == self.music_list[selected_song_index[0]]):
+                return
             self.current_song = self.music_list[selected_song_index[0]]
             self.serialize_and_send(self.current_song.id)
             threading.Thread(target=self.receive_audio).start()
