@@ -6,15 +6,16 @@ import select
 import wave
 import os
 import time
-from _thread import *
+import threading
 
 class Music:
     def __init__(self, id, filename):
         self.id = id
         self.filename = filename
         
-class Server():
+class Server(threading.Thread):
     def __init__(self, conn, address):
+        threading.Thread.__init__(self)
         self.conn = conn
         self.address = address
         print("<", self.address, ">  connected ")
@@ -202,10 +203,13 @@ class Server():
         self.conn.close()
 
 
-while True:
+if __name__ == "__main__":
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(("", 5544))
     server_socket.listen(10)
-    conn, address = server_socket.accept()
-    server = Server(conn, address)
+    
+    while True:
+        conn, address = server_socket.accept()
+        server = Server(conn, address)
+        server.start()
