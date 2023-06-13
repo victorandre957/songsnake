@@ -117,7 +117,7 @@ class Server(threading.Thread):
 
         self.play = pyaudio.PyAudio()
 
-        CHUNK = 1024 * 20
+        CHUNK = (44100 * 2 * 30)
         FORMAT = pyaudio.paInt16
         CHANNELS = 2
         RATE = 44100
