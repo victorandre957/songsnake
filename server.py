@@ -1,9 +1,3 @@
-'''
-store all file to play in the "resource" sub directory where the server file exists
-run using command in linux : "python3 server.py"
-the audio should be of .wav format with 44100 Hz frequency
-'''
-
 import pickle
 import socket
 import pyaudio
@@ -118,7 +112,6 @@ class Server():
             
     def play_music(self):
         self.playing_music = True
-        print("strat")
         wf = wave.open("./resource/" + self.music_to_play + ".wav", 'rb')
 
         self.play = pyaudio.PyAudio()
@@ -181,7 +174,6 @@ class Server():
 
         self.playing_music = False
         self.music_to_play = None
-        print("stop")
 
     def pause_or_play_music(self):
         if (not self.pause_music):
