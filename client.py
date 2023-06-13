@@ -85,12 +85,7 @@ class MusicPlayer:
             self.error_label.config(text="Não foi possível se conectar com o servidor, clique no botão 'Reconectar'")
             return
 
-    def play_music(self):
-        is_connected = self.is_socket_connected()
-        if (not is_connected):
-            self.error_label.config(text="Não foi possível se conectar com o servidor, clique no botão 'Reconectar'")
-            return 
-        
+    def play_music(self):        
         if self.paused:
             self.serialize_and_send("pause/play")
             self.paused = False
@@ -120,6 +115,7 @@ class MusicPlayer:
             output=True,
             frames_per_buffer=CHUNK
         )
+        time.sleep(0.5)
 
         while self.current_song != None and not self.paused:
             try:
@@ -139,8 +135,8 @@ class MusicPlayer:
 
     def stop_music(self):
         self.current_song = None
-        self.clear_socket_buffer()
         self.serialize_and_send("stop")
+        self.clear_socket_buffer()
 
     def close_connection(self):
         if (self.is_socket_connected()):

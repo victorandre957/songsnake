@@ -110,7 +110,6 @@ class Server():
         for music in self.music_list:
             if response == music.id:
                 self.music_to_play = music.filename
-                self.serialize_and_send("String", "\n Reproduzindo...")
                 break
             self.music_to_play = None
             
@@ -119,7 +118,7 @@ class Server():
             
     def play_music(self):
         self.playing_music = True
-
+        print("strat")
         wf = wave.open("./resource/" + self.music_to_play + ".wav", 'rb')
 
         self.play = pyaudio.PyAudio()
@@ -182,6 +181,7 @@ class Server():
 
         self.playing_music = False
         self.music_to_play = None
+        print("stop")
 
     def pause_or_play_music(self):
         if (not self.pause_music):
